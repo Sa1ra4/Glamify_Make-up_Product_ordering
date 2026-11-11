@@ -192,9 +192,6 @@ The uploaded source code does **not** directly use an `abstract` class or an `in
 3. Make sure the `Images` folder is in the same project folder as the Java files.
 4. Open `Main.java`.
 5. Run the `Main` class.
-
-**Note:** The source files in the uploaded project ZIP use in-memory `ArrayList` and `HashMap` storage. They do not contain a JDBC connection or DAO class, so product and order data are not saved permanently to MySQL in this uploaded version. The sample products are loaded by `ProductManager()` whenever the application starts.
-
 ---
 
 ## 👩‍💻 Authors
