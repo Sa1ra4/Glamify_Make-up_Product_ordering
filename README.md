@@ -197,6 +197,9 @@ The uploaded source code does **not** directly use an `abstract` class or an `in
 ## 👩‍💻 Authors
 
 **Saira Jane A. Campo** 
+
 **Kristel Charm Camano** 
+
 **Bachelor of Science in Information Technology (BSIT)**  
+
 **2nd Year**
