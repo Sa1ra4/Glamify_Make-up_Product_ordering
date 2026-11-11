@@ -1,4 +1,3 @@
-
 public class Product {
 
     private int id;
@@ -6,7 +5,7 @@ public class Product {
     private String category;
     private double price;
     private int stock;
-    private String imagePath;
+    private String imagePath; // Product image
 
     public Product(int id, String name, String category,
                    double price, int stock, String imagePath) {
@@ -43,33 +42,27 @@ public class Product {
         return imagePath;
     }
 
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setCategory(String category) {
-        this.category = category;
-    }
-
-    public void setPrice(double price) {
-        this.price = price;
-    }
-
     public void setStock(int stock) {
         this.stock = stock;
     }
-    public void setImagePath(String imagePath) {
-    this.imagePath = imagePath;
+
+    public String getDetails() {
+        return name + " - " + category;
     }
-    public void reduceStock(int quantity) {
-        if (quantity > 0 && quantity <= stock) {
-            stock -= quantity;
-        }
+}
+
+class MakeupProduct extends Product {
+
+    public MakeupProduct(int id, String name, String category,
+                         double price, int stock, String imagePath) {
+
+        super(id, name, category, price, stock, imagePath);
     }
 
     @Override
-    public String toString() {
-        return name + " - ₱" + price;
+    public String getDetails() {
+        return "💄 " + super.getName()
+                + " (" + super.getCategory() + ")";
     }
 }
 

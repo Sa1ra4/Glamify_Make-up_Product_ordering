@@ -1,665 +1,219 @@
 
 import javax.swing.*;
-import javax.swing.border.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 
 public class GlamifyGUI extends JFrame {
 
     private ProductManager manager;
-    private Cart cart;
-    private OrderHistory history;
+    private ArrayList<Order> orderHistory;
+    private HashMap<Integer, Integer> cart;
 
-    private JPanel productPanel;
-    private DefaultListModel<String> cartModel;
-    private JList<String> cartList;
+    private JPanel cardsPanel;
+    private JPanel cartPanel;
+
+    private DefaultTableModel cartModel;
+    private DefaultTableModel historyModel;
+
+    private JTable cartTable;
+    private JTable historyTable;
 
     private JLabel totalLabel;
-    private JLabel bagCountLabel;
+    private JLabel productCountLabel;
     private JTextField searchField;
-    private JComboBox<String> sortBox;
 
-    private String selectedCategory = "All";
-
-    private final Color pink = new Color(245, 65, 137);
-    private final Color darkPink = new Color(173, 15, 83);
-    private final Color deepPink = new Color(125, 10, 65);
-    private final Color lightPink = new Color(255, 224, 237);
-    private final Color background = new Color(255, 241, 247);
+    private final Color pink = new Color(255, 225, 237);
+    private final Color darkPink = new Color(205, 85, 140);
+    private final Color background = new Color(255, 247, 251);
+    private final Color white = Color.WHITE;
+    private final Color textColor = new Color(90, 55, 75);
 
     public GlamifyGUI() {
 
         manager = new ProductManager();
-        cart = new Cart();
-        history = new OrderHistory();
+        orderHistory = new ArrayList<>();
+        cart = new HashMap<>();
 
         setTitle("GLAMIFY | Beauty Shopping");
-        setSize(1450, 850);
-        setMinimumSize(new Dimension(1100, 700));
+        setSize(1250, 800);
+        setMinimumSize(new Dimension(1000, 650));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        createInterface();
+        getContentPane().setBackground(background);
+        setLayout(new BorderLayout());
+
+        createHeader();
+        createProductPanel();
+        createCartPanel();
+        createBottomPanel();
+
         refreshProducts();
-
-        setVisible(true);
-    }
-
-    // MAIN INTERFACE
-    private void createInterface() {
-
-        JPanel main = new JPanel(new BorderLayout());
-        main.setBackground(background);
-
-        // LEFT SIDEBAR
-        JPanel sidebar = new JPanel();
-        sidebar.setPreferredSize(new Dimension(220, 0));
-        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
-        sidebar.setBackground(deepPink);
-        sidebar.setBorder(new EmptyBorder(25, 15, 20, 15));
-
-        JLabel logo = new JLabel("👑 GLAMIFY");
-        logo.setFont(new Font("Serif", Font.BOLD, 27));
-        logo.setForeground(Color.WHITE);
-        logo.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JLabel collection = new JLabel("✦ BEAUTY COLLECTION ✦");
-        collection.setFont(new Font("SansSerif", Font.BOLD, 11));
-        collection.setForeground(Color.WHITE);
-        collection.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        sidebar.add(logo);
-        sidebar.add(Box.createVerticalStrut(10));
-        sidebar.add(collection);
-        sidebar.add(Box.createVerticalStrut(35));
-
-        sidebar.add(createSidebarButton("♡  Home", () -> {
-            selectedCategory = "All";
-            searchField.setText("");
-            refreshProducts();
-        }));
-
-        sidebar.add(Box.createVerticalStrut(12));
-        sidebar.add(createSidebarButton("🛍  Products", () -> {
-            selectedCategory = "All";
-            searchField.setText("");
-            refreshProducts();
-        }));
-
-        sidebar.add(Box.createVerticalStrut(12));
-        sidebar.add(createSidebarButton("▤  My Orders",
-                this::showOrderHistory));
-
-        sidebar.add(Box.createVerticalStrut(12));
-        sidebar.add(createSidebarButton("⚙  Admin Panel", () -> {
-            try {
-                Class<?> adminGUI = Class.forName("AdminGUI");
-                adminGUI.getConstructor(ProductManager.class, Runnable.class)
-                        .newInstance(manager, (Runnable) this::refreshProducts);
-            } catch (ReflectiveOperationException ex) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Admin panel is unavailable.",
-                        "Admin Panel",
-                        JOptionPane.ERROR_MESSAGE
-                );
-            }
-        }));
-
-        sidebar.add(Box.createVerticalGlue());
-
-        JLabel quote = new JLabel(
-                "<html><center><i>Be Confident<br>Be Beautiful<br>Be You ♡</i></center></html>"
-        );
-        quote.setFont(new Font("Serif", Font.ITALIC, 23));
-        quote.setForeground(Color.WHITE);
-        quote.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JLabel decorations = new JLabel("💄 🌹 🎀 💅");
-        decorations.setFont(new Font("SansSerif", Font.PLAIN, 25));
-        decorations.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        sidebar.add(quote);
-        sidebar.add(Box.createVerticalStrut(20));
-        sidebar.add(decorations);
-
-        // CENTER PANEL
-        JPanel centerPanel = new JPanel(new BorderLayout());
-        centerPanel.setBackground(background);
-        centerPanel.setBorder(new EmptyBorder(12, 15, 12, 15));
-
-        // BEAUTY BANNER
-        GradientPanel banner = new GradientPanel(
-                new Color(255, 190, 215),
-                new Color(255, 225, 237)
-        );
-
-        banner.setLayout(new BorderLayout());
-        banner.setPreferredSize(new Dimension(600, 145));
-        banner.setBorder(new EmptyBorder(15, 25, 15, 25));
-
-        JPanel bannerText = new JPanel();
-        bannerText.setOpaque(false);
-        bannerText.setLayout(new BoxLayout(bannerText, BoxLayout.Y_AXIS));
-
-        JLabel bannerTitle = new JLabel("Discover Your Beauty ♡");
-        bannerTitle.setFont(new Font("Serif", Font.BOLD | Font.ITALIC, 35));
-        bannerTitle.setForeground(darkPink);
-
-        JLabel bannerSubtitle = new JLabel(
-                "Curated makeup essentials just for you ✨"
-        );
-        bannerSubtitle.setFont(new Font("Serif", Font.ITALIC, 17));
-        bannerSubtitle.setForeground(deepPink);
-
-        bannerText.add(bannerTitle);
-        bannerText.add(Box.createVerticalStrut(8));
-        bannerText.add(bannerSubtitle);
-
-        JLabel makeupArt = new JLabel("💄 💋 🎀 🪞");
-        makeupArt.setFont(new Font("SansSerif", Font.PLAIN, 32));
-
-        banner.add(bannerText, BorderLayout.WEST);
-        banner.add(makeupArt, BorderLayout.EAST);
-
-        // SEARCH
-        searchField = new JTextField();
-        searchField.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        searchField.setBorder(new CompoundBorder(
-                new LineBorder(pink, 2, true),
-                new EmptyBorder(10, 12, 10, 12)
-        ));
-
-        JButton searchButton = createButton("🔍 Search", pink);
-        searchButton.addActionListener(e -> refreshProducts());
-
-        JPanel searchPanel = new JPanel(new BorderLayout(8, 0));
-        searchPanel.setOpaque(false);
-        searchPanel.add(searchField, BorderLayout.CENTER);
-        searchPanel.add(searchButton, BorderLayout.EAST);
-
-        // SORT
-        sortBox = new JComboBox<>(new String[]{
-                "Default",
-                "Price: Low to High",
-                "Price: High to Low"
-        });
-
-        sortBox.addActionListener(e -> sortProducts());
-
-        JPanel sortPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        sortPanel.setOpaque(false);
-        sortPanel.add(new JLabel("Sort:"));
-        sortPanel.add(sortBox);
-
-        JPanel searchSort = new JPanel(new BorderLayout(10, 0));
-        searchSort.setOpaque(false);
-        searchSort.add(searchPanel, BorderLayout.CENTER);
-        searchSort.add(sortPanel, BorderLayout.EAST);
-
-        // CATEGORIES
-        JPanel categoryPanel = new JPanel(
-                new FlowLayout(FlowLayout.LEFT, 7, 5)
-        );
-        categoryPanel.setBackground(background);
-
-        String[] categories = {
-                "All", "Lipstick", "Blush", "Foundation",
-                "Highlighter", "Mascara", "Concealer", "Powder"
-        };
-
-        for (String category : categories) {
-
-            JButton button = new JButton(category);
-            button.setFont(new Font("SansSerif", Font.BOLD, 12));
-            button.setForeground(darkPink);
-            button.setBackground(Color.WHITE);
-            button.setFocusPainted(false);
-            button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            button.setBorder(new CompoundBorder(
-                    new LineBorder(pink, 1, true),
-                    new EmptyBorder(8, 13, 8, 13)
-            ));
-
-            button.addActionListener(e -> {
-                selectedCategory = category;
-                refreshProducts();
-            });
-
-            categoryPanel.add(button);
-        }
-
-        JPanel controls = new JPanel(new BorderLayout());
-        controls.setBackground(background);
-        controls.add(searchSort, BorderLayout.NORTH);
-        controls.add(categoryPanel, BorderLayout.CENTER);
-
-        JPanel topArea = new JPanel(new BorderLayout());
-        topArea.setBackground(background);
-        topArea.add(banner, BorderLayout.NORTH);
-        topArea.add(controls, BorderLayout.CENTER);
-
-        // PRODUCT PANEL
-        productPanel = new JPanel(new GridLayout(0, 3, 15, 15));
-        productPanel.setBackground(background);
-        productPanel.setBorder(new EmptyBorder(12, 5, 15, 5));
-
-        JScrollPane productScroll = new JScrollPane(productPanel);
-        productScroll.setBorder(null);
-        productScroll.getVerticalScrollBar().setUnitIncrement(18);
-        productScroll.getViewport().setBackground(background);
-
-        centerPanel.add(topArea, BorderLayout.NORTH);
-        centerPanel.add(productScroll, BorderLayout.CENTER);
-
-        // RIGHT SHOPPING BAG
-        JPanel bagPanel = new JPanel(new BorderLayout(8, 10));
-        bagPanel.setPreferredSize(new Dimension(285, 0));
-        bagPanel.setBackground(Color.WHITE);
-        bagPanel.setBorder(new CompoundBorder(
-                new LineBorder(pink, 2),
-                new EmptyBorder(15, 13, 15, 13)
-        ));
-
-        JPanel bagHeader = new JPanel(new BorderLayout());
-        bagHeader.setBackground(Color.WHITE);
-
-        JLabel bagTitle = new JLabel("MY BAG ♡");
-        bagTitle.setFont(new Font("Serif", Font.BOLD, 22));
-        bagTitle.setForeground(darkPink);
-
-        bagCountLabel = new JLabel("0 items");
-        bagCountLabel.setForeground(darkPink);
-
-        bagHeader.add(bagTitle, BorderLayout.WEST);
-        bagHeader.add(bagCountLabel, BorderLayout.EAST);
-
-        cartModel = new DefaultListModel<>();
-        cartList = new JList<>(cartModel);
-        cartList.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        cartList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        cartList.setFixedCellHeight(35);
-        cartList.setBackground(new Color(255, 247, 251));
-
-        JScrollPane cartScroll = new JScrollPane(cartList);
-        cartScroll.setBorder(new LineBorder(lightPink));
-
-        totalLabel = new JLabel("Total: ₱0.00");
-        totalLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
-        totalLabel.setForeground(darkPink);
-
-        JButton removeButton = createButton("✖ Remove Item", pink);
-        removeButton.addActionListener(e -> removeCartItem());
-
-        JButton checkoutButton = createButton("🛒 CHECKOUT →", darkPink);
-        checkoutButton.addActionListener(e -> checkout());
-
-        JButton historyButton = createButton("◷ View Order History", pink);
-        historyButton.addActionListener(e -> showOrderHistory());
-
-        JPanel bagBottom = new JPanel();
-        bagBottom.setBackground(Color.WHITE);
-        bagBottom.setLayout(new BoxLayout(bagBottom, BoxLayout.Y_AXIS));
-
-        bagBottom.add(totalLabel);
-        bagBottom.add(Box.createVerticalStrut(10));
-        bagBottom.add(removeButton);
-        bagBottom.add(Box.createVerticalStrut(8));
-        bagBottom.add(checkoutButton);
-        bagBottom.add(Box.createVerticalStrut(8));
-        bagBottom.add(historyButton);
-
-        bagPanel.add(bagHeader, BorderLayout.NORTH);
-        bagPanel.add(cartScroll, BorderLayout.CENTER);
-        bagPanel.add(bagBottom, BorderLayout.SOUTH);
-
-        main.add(sidebar, BorderLayout.WEST);
-        main.add(centerPanel, BorderLayout.CENTER);
-        main.add(bagPanel, BorderLayout.EAST);
-
-        add(main);
-    }
-
-    // GRADIENT PANEL
-    class GradientPanel extends JPanel {
-
-        private Color color1;
-        private Color color2;
-
-        public GradientPanel(Color color1, Color color2) {
-            this.color1 = color1;
-            this.color2 = color2;
-            setOpaque(false);
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-
-            Graphics2D g2 = (Graphics2D) g.create();
-
-            g2.setRenderingHint(
-                    RenderingHints.KEY_ANTIALIASING,
-                    RenderingHints.VALUE_ANTIALIAS_ON
-            );
-
-            g2.setPaint(new GradientPaint(
-                    0, 0, color1,
-                    getWidth(), getHeight(), color2
-            ));
-
-            g2.fillRoundRect(
-                    0, 0, getWidth(), getHeight(), 25, 25
-            );
-
-            g2.dispose();
-        }
-    }
-
-    // SIDEBAR BUTTON
-    private JButton createSidebarButton(String text, Runnable action) {
-
-        JButton button = new JButton(text);
-
-        button.setMaximumSize(new Dimension(190, 48));
-        button.setPreferredSize(new Dimension(190, 48));
-        button.setAlignmentX(Component.CENTER_ALIGNMENT);
-        button.setFont(new Font("SansSerif", Font.BOLD, 14));
-        button.setForeground(Color.WHITE);
-        button.setBackground(new Color(190, 40, 105));
-        button.setFocusPainted(false);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        button.setBorder(new CompoundBorder(
-                new LineBorder(new Color(255, 175, 210), 1, true),
-                new EmptyBorder(10, 12, 10, 12)
-        ));
-
-        button.addActionListener(e -> action.run());
-
-        return button;
-    }
-
-    // NORMAL BUTTON
-    private JButton createButton(String text, Color color) {
-
-        JButton button = new JButton(text);
-
-        button.setFont(new Font("SansSerif", Font.BOLD, 12));
-        button.setForeground(Color.WHITE);
-        button.setBackground(color);
-        button.setFocusPainted(false);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        button.setBorder(new CompoundBorder(
-                new LineBorder(color, 1, true),
-                new EmptyBorder(10, 12, 10, 12)
-        ));
-
-        return button;
-    }
-
-    // GET IMAGE PATH BASED ON PRODUCT CATEGORY
-    private String getImagePath(String category) {
-
-        String value = category.toLowerCase();
-
-        if (value.contains("lipstick") || value.contains("lip")) {
-            return "images/lipstick.png";
-        }
-
-        if (value.contains("blush")) {
-            return "images/blush.png";
-        }
-
-        if (value.contains("foundation")) {
-            return "images/foundation.png";
-        }
-
-        if (value.contains("highlighter")) {
-            return "images/highlighter.png";
-        }
-
-        if (value.contains("mascara")) {
-            return "images/mascara.png";
-        }
-
-        if (value.contains("concealer")) {
-            return "images/concealer.png";
-        }
-
-        if (value.contains("powder")) {
-            return "images/powder.png";
-        }
-
-        return "";
-    }
-
-    // PRODUCT EMOJI IF IMAGE IS MISSING
-    private String getProductEmoji(String category) {
-
-        String value = category.toLowerCase();
-
-        if (value.contains("lipstick") || value.contains("lip")) {
-            return "💄";
-        } else if (value.contains("blush")) {
-            return "🌸";
-        } else if (value.contains("foundation")) {
-            return "🧴";
-        } else if (value.contains("highlighter")) {
-            return "✨";
-        } else if (value.contains("mascara")) {
-            return "🖤";
-        } else if (value.contains("concealer")) {
-            return "💗";
-        } else if (value.contains("powder")) {
-            return "🎀";
-        }
-
-        return "💋";
-    }
-
-    // LOAD PRODUCT IMAGE
-    private ImageIcon loadProductImage(String category) {
-
-        String path = getImagePath(category);
-
-        if (path.isEmpty()) {
-            return null;
-        }
-
-        java.io.File file = new java.io.File(path);
-
-        if (!file.exists()) {
-            return null;
-        }
-
-        ImageIcon original = new ImageIcon(path);
-
-        Image scaled = original.getImage().getScaledInstance(
-                260, 170, Image.SCALE_SMOOTH
-        );
-
-        return new ImageIcon(scaled);
-    }
-
-    // DISPLAY PRODUCTS
-    private void refreshProducts() {
-
-        productPanel.removeAll();
-
-        String keyword = searchField.getText().trim().toLowerCase();
-
-        for (Product product : manager.getProducts()) {
-
-            boolean matchesSearch =
-                    product.getName().toLowerCase().contains(keyword)
-                    || product.getCategory().toLowerCase().contains(keyword);
-
-            boolean matchesCategory =
-                    selectedCategory.equals("All")
-                    || product.getCategory().equalsIgnoreCase(selectedCategory);
-
-            if (matchesSearch && matchesCategory) {
-                productPanel.add(createProductCard(product));
-            }
-        }
-
-        if (productPanel.getComponentCount() == 0) {
-
-            productPanel.setLayout(new BorderLayout());
-
-            JLabel noProducts = new JLabel(
-                    "💗 No beauty products found!",
-                    SwingConstants.CENTER
-            );
-
-            noProducts.setFont(new Font("Serif", Font.BOLD, 20));
-            noProducts.setForeground(darkPink);
-
-            productPanel.add(noProducts, BorderLayout.CENTER);
-
-        } else {
-            productPanel.setLayout(new GridLayout(0, 3, 15, 15));
-        }
-
-        productPanel.revalidate();
-        productPanel.repaint();
-
         refreshCart();
     }
 
-    // PRODUCT CARD WITH ACTUAL IMAGE
+    // HEADER
+    private void createHeader() {
+
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(darkPink);
+        header.setBorder(
+                BorderFactory.createEmptyBorder(18, 25, 18, 25));
+
+        JPanel titlePanel = new JPanel(new GridLayout(2, 1));
+        titlePanel.setOpaque(false);
+
+        JLabel title = new JLabel("💗 GLAMIFY");
+        title.setForeground(white);
+        title.setFont(new Font("Serif", Font.BOLD, 34));
+
+        JLabel subtitle = new JLabel(
+                "BEAUTY STARTS WITH YOU | Your Beauty, Your Style ✨");
+
+        subtitle.setForeground(white);
+        subtitle.setFont(new Font("Arial", Font.PLAIN, 13));
+
+        titlePanel.add(title);
+        titlePanel.add(subtitle);
+
+        JLabel slogan = new JLabel("✨ BEAUTY COLLECTION ✨");
+        slogan.setForeground(white);
+        slogan.setFont(new Font("Arial", Font.BOLD, 16));
+
+        header.add(titlePanel, BorderLayout.WEST);
+        header.add(slogan, BorderLayout.EAST);
+
+        add(header, BorderLayout.NORTH);
+    }
+
+    // PRODUCT SECTION
+    private void createProductPanel() {
+
+        JPanel mainPanel = new JPanel(new BorderLayout(10, 15));
+        mainPanel.setBackground(background);
+        mainPanel.setBorder(
+                BorderFactory.createEmptyBorder(20, 20, 15, 10));
+
+        JPanel topPanel = new JPanel(new BorderLayout(10, 10));
+        topPanel.setOpaque(false);
+
+        JPanel headingPanel = new JPanel(new GridLayout(2, 1));
+        headingPanel.setOpaque(false);
+
+        JLabel heading = new JLabel("💄 BEAUTY PRODUCTS");
+        heading.setFont(new Font("Serif", Font.BOLD, 25));
+        heading.setForeground(darkPink);
+
+        productCountLabel = new JLabel(
+                "Find your favorite makeup products");
+
+        productCountLabel.setFont(new Font("Arial", Font.PLAIN, 13));
+        productCountLabel.setForeground(textColor);
+
+        headingPanel.add(heading);
+        headingPanel.add(productCountLabel);
+
+        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        searchPanel.setOpaque(false);
+
+        searchField = new JTextField(13);
+        searchField.setPreferredSize(new Dimension(160, 35));
+
+        JButton searchButton = createButton("Search 🔍");
+        JButton sortButton = createButton("Price: Low to High");
+        JButton showAllButton = createButton("Show All");
+
+        searchButton.addActionListener(e -> searchProduct());
+        searchField.addActionListener(e -> searchProduct());
+
+        sortButton.addActionListener(e -> {
+            manager.sortByPrice();
+            refreshProducts();
+        });
+
+        showAllButton.addActionListener(e -> {
+            searchField.setText("");
+            refreshProducts();
+        });
+
+        searchPanel.add(searchField);
+        searchPanel.add(searchButton);
+        searchPanel.add(sortButton);
+        searchPanel.add(showAllButton);
+
+        topPanel.add(headingPanel, BorderLayout.WEST);
+        topPanel.add(searchPanel, BorderLayout.EAST);
+
+        cardsPanel = new JPanel(new GridLayout(0, 3, 15, 15));
+        cardsPanel.setBackground(background);
+        cardsPanel.setBorder(
+                BorderFactory.createEmptyBorder(5, 5, 15, 5));
+
+        JScrollPane scroll = new JScrollPane(cardsPanel);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(background);
+
+        mainPanel.add(topPanel, BorderLayout.NORTH);
+        mainPanel.add(scroll, BorderLayout.CENTER);
+
+        add(mainPanel, BorderLayout.CENTER);
+    }
+
+    // PRODUCT CARD
     private JPanel createProductCard(Product product) {
 
-        JPanel card = new JPanel(new BorderLayout(8, 8));
-        card.setBackground(Color.WHITE);
+        JPanel card = new JPanel(new BorderLayout(5, 8));
+        card.setBackground(white);
 
-        card.setBorder(new CompoundBorder(
-                new LineBorder(new Color(255, 170, 200), 2, true),
-                new EmptyBorder(12, 12, 12, 12)
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(pink, 2),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)
         ));
 
-        // PRODUCT IMAGE
-        JLabel imageLabel = new JLabel("", SwingConstants.CENTER);
-        imageLabel.setPreferredSize(new Dimension(200, 170));
+        JLabel imageLabel = new JLabel(
+                getProductImage(product), SwingConstants.CENTER);
+
+        imageLabel.setPreferredSize(new Dimension(180, 145));
         imageLabel.setOpaque(true);
-        imageLabel.setBackground(lightPink);
+        imageLabel.setBackground(new Color(255, 240, 247));
 
-        ImageIcon productImage = loadProductImage(product.getCategory());
+        JPanel details = new JPanel(new GridLayout(4, 1, 2, 3));
+        details.setOpaque(false);
 
-        if (productImage != null) {
-            imageLabel.setIcon(productImage);
-        } else {
-            imageLabel.setText(
-                    "<html><center><font size='7'>"
-                    + getProductEmoji(product.getCategory())
-                    + "</font><br><font color='#AD0F53'>GLAMIFY ♡</font></center></html>"
-            );
-        }
+        JLabel name = new JLabel(product.getName());
+        name.setFont(new Font("Arial", Font.BOLD, 16));
+        name.setForeground(textColor);
 
-        // PRODUCT DETAILS
-        JLabel nameLabel = new JLabel(product.getName());
-        nameLabel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        nameLabel.setForeground(new Color(65, 20, 45));
+        JLabel category = new JLabel(
+                "Category: " + product.getCategory());
 
-        JLabel categoryLabel = new JLabel(product.getCategory());
-        categoryLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        categoryLabel.setForeground(pink);
+        category.setFont(new Font("Arial", Font.PLAIN, 12));
+        category.setForeground(Color.GRAY);
 
-        JLabel ratingLabel = new JLabel("★★★★★");
-        ratingLabel.setFont(new Font("SansSerif", Font.BOLD, 17));
-        ratingLabel.setForeground(new Color(255, 165, 60));
+        JLabel price = new JLabel(
+                String.format("₱%.2f", product.getPrice()));
 
-        JLabel priceLabel = new JLabel(
-                "₱" + String.format("%.2f", product.getPrice())
-        );
-        priceLabel.setFont(new Font("SansSerif", Font.BOLD, 20));
-        priceLabel.setForeground(darkPink);
+        price.setFont(new Font("Arial", Font.BOLD, 17));
+        price.setForeground(darkPink);
 
-        JLabel stockLabel = new JLabel(
-                "In stock: " + product.getStock()
-        );
-        stockLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        stockLabel.setForeground(new Color(160, 65, 105));
+        JLabel stock = new JLabel("Stock: " + product.getStock());
+        stock.setFont(new Font("Arial", Font.PLAIN, 12));
+        stock.setForeground(textColor);
 
-        JPanel details = new JPanel();
-        details.setBackground(Color.WHITE);
-        details.setLayout(new BoxLayout(details, BoxLayout.Y_AXIS));
+        details.add(name);
+        details.add(category);
+        details.add(price);
+        details.add(stock);
 
-        details.add(nameLabel);
-        details.add(Box.createVerticalStrut(5));
-        details.add(categoryLabel);
-        details.add(ratingLabel);
-        details.add(Box.createVerticalStrut(12));
+        JButton addButton = createButton("ADD TO CART 🛒");
+        addButton.setEnabled(product.getStock() > 0);
 
-        JPanel priceStock = new JPanel(new BorderLayout());
-        priceStock.setBackground(Color.WHITE);
-        priceStock.add(priceLabel, BorderLayout.WEST);
-        priceStock.add(stockLabel, BorderLayout.EAST);
-
-        details.add(priceStock);
-
-        // ADD TO CART
-        JButton addButton = createButton("🛒 ADD TO CART", pink);
-
-        addButton.addActionListener(e -> {
-
-            if (product.getStock() <= 0) {
-                JOptionPane.showMessageDialog(
-                        this,
-                        "This product is out of stock!"
-                );
-                return;
-            }
-
-            String input = JOptionPane.showInputDialog(
-                    this,
-                    "Enter quantity for " + product.getName() + ":",
-                    "💗 Add to Beauty Bag",
-                    JOptionPane.QUESTION_MESSAGE
-            );
-
-            if (input == null) return;
-
-            try {
-
-                int quantity = Integer.parseInt(input);
-
-                if (quantity <= 0) {
-                    JOptionPane.showMessageDialog(
-                            this,
-                            "Please enter a valid quantity."
-                    );
-                    return;
-                }
-
-                if (cart.addProduct(product, quantity)) {
-
-                    refreshCart();
-
-                    JOptionPane.showMessageDialog(
-                            this,
-                            "Added to your beauty bag! 💗"
-                    );
-
-                } else {
-
-                    JOptionPane.showMessageDialog(
-                            this,
-                            "Not enough stock available!"
-                    );
-                }
-
-            } catch (NumberFormatException ex) {
-
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Please enter a valid number."
-                );
-            }
-        });
+        addButton.addActionListener(e -> addProductToCart(product));
 
         card.add(imageLabel, BorderLayout.NORTH);
         card.add(details, BorderLayout.CENTER);
@@ -668,262 +222,513 @@ public class GlamifyGUI extends JFrame {
         return card;
     }
 
-    // SORT PRODUCTS
-    private void sortProducts() {
+    // LOAD PRODUCT IMAGE
+    private ImageIcon getProductImage(Product product) {
 
-        String selected = (String) sortBox.getSelectedItem();
+        String imagePath = product.getImagePath();
 
-        if ("Price: Low to High".equals(selected)) {
-            manager.sortByPrice();
-        } else if ("Price: High to Low".equals(selected)) {
-            manager.sortByHighestPrice();
+        if (imagePath != null && !imagePath.trim().isEmpty()) {
+
+            File file = new File(imagePath);
+
+            if (file.exists()) {
+
+                ImageIcon original = new ImageIcon(imagePath);
+
+                Image scaled = original.getImage().getScaledInstance(
+                        160, 130, Image.SCALE_SMOOTH);
+
+                return new ImageIcon(scaled);
+            }
         }
 
-        refreshProducts();
+        return createPlaceholderImage();
+    }
+
+    // IMAGE PLACEHOLDER
+    private ImageIcon createPlaceholderImage() {
+
+        BufferedImage image = new BufferedImage(
+                160, 130, BufferedImage.TYPE_INT_ARGB);
+
+        Graphics2D g = image.createGraphics();
+
+        g.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON);
+
+        g.setColor(new Color(255, 225, 237));
+        g.fillRoundRect(0, 0, 160, 130, 20, 20);
+
+        g.setFont(new Font("Arial", Font.BOLD, 40));
+        g.setColor(darkPink);
+        g.drawString("GLAMIFY", 25, 60);
+
+        g.setFont(new Font("Arial", Font.PLAIN, 12));
+        g.drawString("BEAUTY PRODUCT", 32, 90);
+
+        g.dispose();
+
+        return new ImageIcon(image);
+    }
+
+    // REFRESH PRODUCTS
+    private void refreshProducts() {
+        displayProducts(manager.getProducts());
+    }
+
+    private void displayProducts(ArrayList<Product> products) {
+
+        cardsPanel.removeAll();
+
+        for (Product product : products) {
+            cardsPanel.add(createProductCard(product));
+        }
+
+        productCountLabel.setText(
+                products.size() + " beauty products available");
+
+        cardsPanel.revalidate();
+        cardsPanel.repaint();
+    }
+
+    // CART SECTION
+    private void createCartPanel() {
+
+        cartPanel = new JPanel(new BorderLayout(10, 12));
+        cartPanel.setPreferredSize(new Dimension(330, 0));
+        cartPanel.setBackground(pink);
+        cartPanel.setBorder(
+                BorderFactory.createEmptyBorder(18, 15, 18, 15));
+
+        JLabel heading = new JLabel("🛍️ MY SHOPPING BAG");
+        heading.setFont(new Font("Arial", Font.BOLD, 19));
+        heading.setForeground(darkPink);
+
+        cartModel = new DefaultTableModel(
+                new String[]{"ID", "Product", "Qty", "Subtotal"}, 0) {
+
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        cartTable = new JTable(cartModel);
+        styleTable(cartTable);
+
+        cartTable.getColumnModel().getColumn(0).setPreferredWidth(30);
+
+        totalLabel = new JLabel("TOTAL: ₱0.00");
+        totalLabel.setFont(new Font("Arial", Font.BOLD, 20));
+        totalLabel.setForeground(darkPink);
+
+        JButton removeButton = createButton("Remove Item");
+        JButton checkoutButton = createButton("CHECKOUT 💗");
+        JButton historyButton = createButton("Order History");
+
+        removeButton.addActionListener(e -> removeFromCart());
+        checkoutButton.addActionListener(e -> checkout());
+        historyButton.addActionListener(e -> showHistory());
+
+        JPanel buttonPanel = new JPanel(new GridLayout(3, 1, 5, 8));
+        buttonPanel.setOpaque(false);
+
+        buttonPanel.add(removeButton);
+        buttonPanel.add(checkoutButton);
+        buttonPanel.add(historyButton);
+
+        JPanel bottom = new JPanel(new BorderLayout(5, 15));
+        bottom.setOpaque(false);
+        bottom.add(totalLabel, BorderLayout.NORTH);
+        bottom.add(buttonPanel, BorderLayout.CENTER);
+
+        cartPanel.add(heading, BorderLayout.NORTH);
+        cartPanel.add(new JScrollPane(cartTable), BorderLayout.CENTER);
+        cartPanel.add(bottom, BorderLayout.SOUTH);
+
+        add(cartPanel, BorderLayout.EAST);
     }
 
     // REFRESH CART
     private void refreshCart() {
 
-        cartModel.clear();
+        cartModel.setRowCount(0);
 
-        int totalItems = 0;
+        double total = 0;
 
-        for (Map.Entry<Product, Integer> entry :
-                cart.getItems().entrySet()) {
+        for (Map.Entry<Integer, Integer> entry : cart.entrySet()) {
 
-            Product product = entry.getKey();
-            int quantity = entry.getValue();
+            Product product = manager.findProduct(entry.getKey());
 
-            totalItems += quantity;
+            if (product != null) {
 
-            cartModel.addElement(
-                    getProductEmoji(product.getCategory()) + " "
-                    + product.getName() + " x" + quantity
-                    + " - ₱"
-                    + String.format("%.2f",
-                    product.getPrice() * quantity)
-            );
+                int quantity = entry.getValue();
+                double subtotal = product.getPrice() * quantity;
+
+                total += subtotal;
+
+                cartModel.addRow(new Object[]{
+                        product.getId(),
+                        product.getName(),
+                        quantity,
+                        String.format("₱%.2f", subtotal)
+                });
+            }
         }
 
-        totalLabel.setText(
-                "Total: ₱" + String.format("%.2f", cart.getTotal())
-        );
-
-        bagCountLabel.setText(totalItems + " items");
+        totalLabel.setText(String.format("TOTAL: ₱%.2f", total));
     }
 
-    // REMOVE CART ITEM
-    private void removeCartItem() {
+    // ADD TO CART
+    private void addProductToCart(Product product) {
 
-        int selectedIndex = cartList.getSelectedIndex();
-
-        if (selectedIndex == -1) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Please select an item to remove."
-            );
+        if (product.getStock() <= 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Sorry! This product is out of stock.");
             return;
         }
 
-        Product selectedProduct = new ArrayList<>(
-                cart.getItems().keySet()
-        ).get(selectedIndex);
+        String input = JOptionPane.showInputDialog(
+                this, "Enter quantity for " + product.getName() + ":");
 
-        cart.removeProduct(selectedProduct);
+        if (input == null) return;
+
+        try {
+
+            int quantity = Integer.parseInt(input);
+
+            if (quantity <= 0) {
+                JOptionPane.showMessageDialog(this,
+                        "Quantity must be greater than zero!");
+                return;
+            }
+
+            int currentQuantity = cart.getOrDefault(product.getId(), 0);
+
+            if (currentQuantity + quantity > product.getStock()) {
+                JOptionPane.showMessageDialog(this,
+                        "Not enough stock available!");
+                return;
+            }
+
+            cart.put(product.getId(), currentQuantity + quantity);
+
+            refreshCart();
+
+            JOptionPane.showMessageDialog(this,
+                    product.getName() + " added to your cart! 💗");
+
+        } catch (NumberFormatException ex) {
+
+            JOptionPane.showMessageDialog(this,
+                    "Please enter a valid quantity!");
+        }
+    }
+
+    // REMOVE FROM CART
+    private void removeFromCart() {
+
+        int row = cartTable.getSelectedRow();
+
+        if (row == -1) {
+            JOptionPane.showMessageDialog(this,
+                    "Please select an item first!");
+            return;
+        }
+
+        int id = (int) cartModel.getValueAt(row, 0);
+
+        cart.remove(id);
         refreshCart();
+    }
+
+    // SEARCH
+    private void searchProduct() {
+
+        String keyword = searchField.getText().trim();
+
+        if (keyword.isEmpty()) {
+            refreshProducts();
+            return;
+        }
+
+        displayProducts(manager.searchProduct(keyword));
     }
 
     // CHECKOUT
     private void checkout() {
 
         if (cart.isEmpty()) {
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Your beauty bag is empty! 🛍️"
-            );
+            JOptionPane.showMessageDialog(this,
+                    "Your shopping cart is empty!");
             return;
         }
 
-        for (Map.Entry<Product, Integer> entry :
-                cart.getItems().entrySet()) {
+        String customerName = JOptionPane.showInputDialog(
+                this, "Enter customer name:");
 
-            if (entry.getValue() > entry.getKey().getStock()) {
+        if (customerName == null ||
+                customerName.trim().isEmpty()) {
+            return;
+        }
 
-                JOptionPane.showMessageDialog(
-                        this,
-                        "Not enough stock for "
-                        + entry.getKey().getName()
-                );
+        for (Map.Entry<Integer, Integer> entry : cart.entrySet()) {
 
+            Product product = manager.findProduct(entry.getKey());
+
+            if (product == null ||
+                    entry.getValue() > product.getStock()) {
+
+                JOptionPane.showMessageDialog(this,
+                        "Not enough stock available!");
                 return;
             }
         }
 
-        JTextField nameField = new JTextField();
-        JTextField contactField = new JTextField();
-        JTextField emailField = new JTextField();
-        JTextArea addressField = new JTextArea(3, 15);
+        int orderId = orderHistory.size() + 1;
+        double total = 0;
 
-        addressField.setLineWrap(true);
-        addressField.setWrapStyleWord(true);
+        for (Map.Entry<Integer, Integer> entry : cart.entrySet()) {
 
-        JPanel form = new JPanel(new GridLayout(4, 2, 8, 8));
-
-        form.add(new JLabel("Full Name:"));
-        form.add(nameField);
-
-        form.add(new JLabel("Contact Number:"));
-        form.add(contactField);
-
-        form.add(new JLabel("Email Address:"));
-        form.add(emailField);
-
-        form.add(new JLabel("Delivery Address:"));
-        form.add(new JScrollPane(addressField));
-
-        int result = JOptionPane.showConfirmDialog(
-                this,
-                form,
-                "💗 Customer Information",
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (result != JOptionPane.OK_OPTION) return;
-
-        String name = nameField.getText().trim();
-        String contact = contactField.getText().trim();
-        String email = emailField.getText().trim();
-        String address = addressField.getText().trim();
-
-        if (name.isEmpty() || contact.isEmpty()
-                || email.isEmpty() || address.isEmpty()) {
-
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Please complete all customer information."
-            );
-
-            return;
-        }
-
-        Customer customer = new Customer(
-                1, name, email, contact, address
-        );
-
-        Order order = new Order(cart.getItems(), customer);
-
-        for (Map.Entry<Product, Integer> entry :
-                cart.getItems().entrySet()) {
-
-            entry.getKey().reduceStock(entry.getValue());
-        }
-
-        history.addOrder(order);
-
-        StringBuilder receipt = new StringBuilder();
-
-        receipt.append("       💄 GLAMIFY BEAUTY SHOP 💄\n");
-        receipt.append("================================\n");
-        receipt.append("             RECEIPT\n");
-        receipt.append("================================\n");
-
-        receipt.append("Order ID: ")
-                .append(order.getOrderId()).append("\n");
-
-        receipt.append("Customer: ")
-                .append(customer.getFullName()).append("\n");
-
-        receipt.append("Contact: ").append(contact).append("\n");
-        receipt.append("Email: ").append(customer.getEmail()).append("\n");
-        receipt.append("Address: ").append(customer.getAddress()).append("\n");
-
-        receipt.append("--------------------------------\n");
-
-        for (Map.Entry<Product, Integer> entry :
-                order.getItems().entrySet()) {
-
-            Product product = entry.getKey();
+            Product product = manager.findProduct(entry.getKey());
             int quantity = entry.getValue();
 
-            receipt.append(product.getName())
-                    .append(" x").append(quantity)
-                    .append(" = ₱")
-                    .append(String.format("%.2f",
-                            product.getPrice() * quantity))
-                    .append("\n");
+            product.setStock(product.getStock() - quantity);
+
+            Order order = new Order(
+                    orderId,
+                    customerName,
+                    product,
+                    quantity
+            );
+
+            orderHistory.add(order);
+            total += order.getTotal();
         }
 
-        receipt.append("--------------------------------\n");
+        cart.clear();
 
-        receipt.append("TOTAL: ₱")
-                .append(String.format("%.2f", order.getTotal()))
-                .append("\n");
-
-        receipt.append("Status: ")
-                .append(order.getStatus()).append("\n");
-
-        receipt.append("================================\n");
-        receipt.append("   Thank you for shopping! 💗\n");
-
-        cart.clearCart();
         refreshProducts();
+        refreshCart();
 
-        JTextArea receiptArea = new JTextArea(receipt.toString());
-        receiptArea.setEditable(false);
-        receiptArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
-        receiptArea.setBackground(lightPink);
-        receiptArea.setBorder(new EmptyBorder(15, 15, 15, 15));
-
-        JOptionPane.showMessageDialog(
-                this,
-                new JScrollPane(receiptArea),
-                "💗 GLAMIFY Order Receipt",
-                JOptionPane.INFORMATION_MESSAGE
-        );
+        JOptionPane.showMessageDialog(this,
+                String.format(
+                        "Thank you, %s! 💗\n" +
+                        "Your order was successful!\n" +
+                        "TOTAL: ₱%.2f",
+                        customerName, total));
     }
 
     // ORDER HISTORY
-    private void showOrderHistory() {
+    private void showHistory() {
 
-        ArrayList<Order> orders = history.getOrders();
+        historyModel = new DefaultTableModel(
+                new String[]{
+                        "Order ID", "Customer", "Product",
+                        "Quantity", "Total"
+                }, 0);
 
-        if (orders.isEmpty()) {
+        historyTable = new JTable(historyModel);
+        styleTable(historyTable);
 
-            JOptionPane.showMessageDialog(
-                    this,
-                    "No orders have been placed yet. 💗"
-            );
+        for (Order order : orderHistory) {
 
-            return;
+            historyModel.addRow(new Object[]{
+                    order.getOrderId(),
+                    order.getCustomerName(),
+                    order.getProduct().getName(),
+                    order.getQuantity(),
+                    String.format("₱%.2f", order.getTotal())
+            });
         }
-
-        StringBuilder details = new StringBuilder();
-
-        details.append("       💗 GLAMIFY ORDER HISTORY 💗\n");
-        details.append("====================================\n\n");
-
-        for (Order order : orders) {
-            details.append(order.toString()).append("\n");
-            details.append("------------------------------------\n");
-        }
-
-        JTextArea historyArea = new JTextArea(details.toString());
-        historyArea.setEditable(false);
-        historyArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
-        historyArea.setBackground(lightPink);
 
         JOptionPane.showMessageDialog(
                 this,
-                new JScrollPane(historyArea),
-                "📋 GLAMIFY Order History",
+                new JScrollPane(historyTable),
+                "💗 GLAMIFY ORDER HISTORY",
                 JOptionPane.INFORMATION_MESSAGE
         );
     }
 
-    // MAIN METHOD
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(GlamifyGUI::new);
+    // ADMIN MENU
+    private void adminMenu() {
+
+        String[] choices = {
+                "Add Product",
+                "Delete Product",
+                "View Inventory"
+        };
+
+        int choice = JOptionPane.showOptionDialog(
+                this,
+                "Choose an admin action:",
+                "GLAMIFY ADMIN",
+                JOptionPane.DEFAULT_OPTION,
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                choices,
+                choices[0]
+        );
+
+        if (choice == 0) {
+            addNewProduct();
+        } else if (choice == 1) {
+            deleteProduct();
+        } else if (choice == 2) {
+            refreshProducts();
+        }
+    }
+
+    // ADD NEW PRODUCT
+    private void addNewProduct() {
+
+        try {
+
+            String name = JOptionPane.showInputDialog(
+                    this, "Product name:");
+
+            if (name == null || name.trim().isEmpty()) return;
+
+            String category = JOptionPane.showInputDialog(
+                    this, "Category:");
+
+            if (category == null || category.trim().isEmpty()) return;
+
+            String priceInput = JOptionPane.showInputDialog(
+                    this, "Price:");
+
+            if (priceInput == null) return;
+
+            String stockInput = JOptionPane.showInputDialog(
+                    this, "Stock:");
+
+            if (stockInput == null) return;
+
+            double price = Double.parseDouble(priceInput);
+            int stock = Integer.parseInt(stockInput);
+
+            if (price < 0 || stock < 0) {
+                JOptionPane.showMessageDialog(this,
+                        "Price and stock cannot be negative!");
+                return;
+            }
+
+            int id = manager.getNextId();
+
+            String imageName = name.trim()
+                    .toLowerCase()
+                    .replace(" ", "_");
+
+            String imagePath = "images/" + imageName + ".png";
+
+            MakeupProduct newProduct = new MakeupProduct(
+                    id, name, category, price, stock, imagePath);
+
+            manager.addProduct(newProduct);
+
+            refreshProducts();
+
+            JOptionPane.showMessageDialog(this,
+                    "New makeup product added! 💗\n"
+                    + "Image: " + imagePath);
+
+        } catch (NumberFormatException ex) {
+
+            JOptionPane.showMessageDialog(this,
+                    "Please enter valid numbers!");
+        }
+    }
+
+    // DELETE PRODUCT
+    private void deleteProduct() {
+
+        String input = JOptionPane.showInputDialog(
+                this, "Enter product ID:");
+
+        if (input == null) return;
+
+        try {
+
+            int id = Integer.parseInt(input);
+
+            if (manager.findProduct(id) == null) {
+                JOptionPane.showMessageDialog(this,
+                        "Product not found!");
+                return;
+            }
+
+            manager.deleteProduct(id);
+            cart.remove(id);
+
+            refreshProducts();
+            refreshCart();
+
+            JOptionPane.showMessageDialog(this,
+                    "Product deleted successfully!");
+
+        } catch (NumberFormatException ex) {
+
+            JOptionPane.showMessageDialog(this,
+                    "Enter a valid product ID!");
+        }
+    }
+
+    // FOOTER
+    private void createBottomPanel() {
+
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        footer.setBackground(background);
+        footer.setBorder(
+                BorderFactory.createEmptyBorder(5, 5, 10, 5));
+
+        JLabel footerText = new JLabel(
+                "💗 GLAMIFY BEAUTY STORE | Thank you for shopping with us! ✨");
+
+        footerText.setFont(new Font("Arial", Font.BOLD, 12));
+        footerText.setForeground(darkPink);
+
+        JButton adminButton = createButton("ADMIN ⚙");
+        adminButton.addActionListener(e -> adminMenu());
+
+        footer.add(footerText);
+        footer.add(adminButton);
+
+        add(footer, BorderLayout.SOUTH);
+    }
+
+    // BUTTON DESIGN
+    private JButton createButton(String text) {
+
+        JButton button = new JButton(text);
+
+        button.setBackground(darkPink);
+        button.setForeground(Color.WHITE);
+        button.setFont(new Font("Arial", Font.BOLD, 12));
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(darkPink),
+                BorderFactory.createEmptyBorder(9, 12, 9, 12)
+        ));
+
+        return button;
+    }
+
+    // TABLE DESIGN
+    private void styleTable(JTable table) {
+
+        table.setRowHeight(30);
+        table.setFont(new Font("Arial", Font.PLAIN, 12));
+
+        table.getTableHeader().setBackground(darkPink);
+        table.getTableHeader().setForeground(Color.WHITE);
+        table.getTableHeader().setFont(
+                new Font("Arial", Font.BOLD, 12));
+
+        table.setSelectionBackground(pink);
+        table.setSelectionForeground(textColor);
+        table.setGridColor(new Color(245, 205, 225));
     }
 }
