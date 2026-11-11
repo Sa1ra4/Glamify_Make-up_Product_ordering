@@ -11,6 +11,7 @@ import java.util.Map;
 public class GlamifyGUI extends JFrame {
 
     private ProductManager manager;
+    private ProductDAO productDAO;
     private ArrayList<Order> orderHistory;
     private HashMap<Integer, Integer> cart;
 
@@ -36,6 +37,7 @@ public class GlamifyGUI extends JFrame {
     public GlamifyGUI() {
 
         manager = new ProductManager();
+        productDAO = new ProductDAO();
         orderHistory = new ArrayList<>();
         cart = new HashMap<>();
 
@@ -133,7 +135,7 @@ public class GlamifyGUI extends JFrame {
 
         sortButton.addActionListener(e -> {
             manager.sortByPrice();
-            refreshProducts();
+            displayProducts(manager.getProducts());
         });
 
         showAllButton.addActionListener(e -> {
@@ -272,8 +274,30 @@ public class GlamifyGUI extends JFrame {
         return new ImageIcon(image);
     }
 
-    // REFRESH PRODUCTS
+    // REFRESH PRODUCTS FROM MYSQL
     private void refreshProducts() {
+
+        ArrayList<Product> databaseProducts =
+                productDAO.getAllProducts();
+
+        if (databaseProducts.isEmpty()) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "No products found in the database.\n"
+                    + "Please check your products table."
+            );
+        }
+
+        ArrayList<Product> oldProducts = manager.getProducts();
+
+        for (Product product : oldProducts) {
+            manager.deleteProduct(product.getId());
+        }
+
+        for (Product product : databaseProducts) {
+            manager.addProduct(product);
+        }
+
         displayProducts(manager.getProducts());
     }
 
@@ -417,12 +441,12 @@ public class GlamifyGUI extends JFrame {
             refreshCart();
 
             JOptionPane.showMessageDialog(this,
-                    product.getName() + " added to your cart! 💗");
+                    product.getName() + " na add na sa cart ang imo ng na order! 💗");
 
         } catch (NumberFormatException ex) {
 
             JOptionPane.showMessageDialog(this,
-                    "Please enter a valid quantity!");
+                    "Please enter kung pila baklon mo!");
         }
     }
 
@@ -456,12 +480,12 @@ public class GlamifyGUI extends JFrame {
         displayProducts(manager.searchProduct(keyword));
     }
 
-    // CHECKOUT
+    // CHECKOUT - SAVE TO MYSQL
     private void checkout() {
 
         if (cart.isEmpty()) {
             JOptionPane.showMessageDialog(this,
-                    "Your shopping cart is empty!");
+                    "wala pa sang sulod ang cart mo!");
             return;
         }
 
@@ -473,11 +497,15 @@ public class GlamifyGUI extends JFrame {
             return;
         }
 
+        customerName = customerName.trim();
+
+        // Check product stock before checkout
         for (Map.Entry<Integer, Integer> entry : cart.entrySet()) {
 
             Product product = manager.findProduct(entry.getKey());
 
             if (product == null ||
+                    entry.getValue() <= 0 ||
                     entry.getValue() > product.getStock()) {
 
                 JOptionPane.showMessageDialog(this,
@@ -486,9 +514,22 @@ public class GlamifyGUI extends JFrame {
             }
         }
 
+        // Save customer, products, prices and quantities to SQL
+        boolean saved = productDAO.saveCheckout(customerName, cart);
+
+        if (!saved) {
+            JOptionPane.showMessageDialog(this,
+                    "Checkout failed!\n"
+                    + "Please check your database and product stock.");
+
+            refreshProducts();
+            return;
+        }
+
         int orderId = orderHistory.size() + 1;
         double total = 0;
 
+        // Update local stock and order history
         for (Map.Entry<Integer, Integer> entry : cart.entrySet()) {
 
             Product product = manager.findProduct(entry.getKey());
@@ -514,9 +555,9 @@ public class GlamifyGUI extends JFrame {
 
         JOptionPane.showMessageDialog(this,
                 String.format(
-                        "Thank you, %s! 💗\n" +
-                        "Your order was successful!\n" +
-                        "TOTAL: ₱%.2f",
+                        "Thank you, %s! 💗\n"
+                        + "Your order was successful!\n"
+                        + "TOTAL: ₱%.2f",
                         customerName, total));
     }
 
@@ -625,13 +666,21 @@ public class GlamifyGUI extends JFrame {
             MakeupProduct newProduct = new MakeupProduct(
                     id, name, category, price, stock, imagePath);
 
-            manager.addProduct(newProduct);
+            boolean added = productDAO.addProduct(newProduct);
 
-            refreshProducts();
+            if (added) {
 
-            JOptionPane.showMessageDialog(this,
-                    "New makeup product added! 💗\n"
-                    + "Image: " + imagePath);
+                refreshProducts();
+
+                JOptionPane.showMessageDialog(this,
+                        "New makeup product saved to database! 💗\n"
+                        + "Image: " + imagePath);
+
+            } else {
+
+                JOptionPane.showMessageDialog(this,
+                        "Failed to save product to database!");
+            }
 
         } catch (NumberFormatException ex) {
 
@@ -658,14 +707,32 @@ public class GlamifyGUI extends JFrame {
                 return;
             }
 
-            manager.deleteProduct(id);
-            cart.remove(id);
+            int confirm = JOptionPane.showConfirmDialog(
+                    this,
+                    "Are you sure you want to delete this product?",
+                    "Confirm Delete",
+                    JOptionPane.YES_NO_OPTION
+            );
 
-            refreshProducts();
-            refreshCart();
+            if (confirm != JOptionPane.YES_OPTION) return;
 
-            JOptionPane.showMessageDialog(this,
-                    "Product deleted successfully!");
+            boolean deleted = productDAO.deleteProduct(id);
+
+            if (deleted) {
+
+                cart.remove(id);
+
+                refreshProducts();
+                refreshCart();
+
+                JOptionPane.showMessageDialog(this,
+                        "Product deleted successfully!");
+
+            } else {
+
+                JOptionPane.showMessageDialog(this,
+                        "Failed to delete product from database!");
+            }
 
         } catch (NumberFormatException ex) {
 
